@@ -1,0 +1,468 @@
+local Services = {
+    Players = game:GetService("Players"),
+    Workspace = game:GetService("Workspace"),
+    CoreGui = game:GetService("CoreGui"),
+    RunService = game:GetService("RunService"),
+    UserInputService = game:GetService("UserInputService"),
+    TweenService = game:GetService("TweenService"),
+    HttpService = game:GetService("HttpService"),
+    TeleportService = game:GetService("TeleportService"),
+    ReplicatedStorage = game:GetService("ReplicatedStorage"),
+    VirtualUser = game:GetService("VirtualUser"),
+    Stats = game:GetService("Stats"),
+    MarketplaceService = game:GetService("MarketplaceService"),
+    Lighting = game:GetService("Lighting"),
+    Debris = game:GetService("Debris")
+}
+local LP = Services.Players.LocalPlayer
+local Mouse = LP:GetMouse()
+local Camera = Services.Workspace.CurrentCamera
+
+local Char, Hum, HRP
+local function UpdateChar()
+    Char = LP.Character
+    if Char then
+        Hum = Char:FindFirstChild("Humanoid")
+        HRP = Char:FindFirstChild("HumanoidRootPart")
+    end
+end
+LP.CharacterAdded:Connect(UpdateChar)
+UpdateChar()
+
+local DrawingAvailable = pcall(function() return Drawing.new end)
+local Drawings = {}
+local function newDrawing(type, props)
+    if not DrawingAvailable then return nil end
+    local d = Drawing.new(type)
+    for k,v in pairs(props) do d[k] = v end
+    return d
+end
+local function clearDrawings()
+    if not DrawingAvailable then return end
+    for _, d in pairs(Drawings) do
+        pcall(function() d:Remove() end)
+    end
+    Drawings = {}
+end
+
+local GameData = {
+    Islands = {
+        ["Start Island"] = {CFrame = CFrame.new(0,50,0), Level = 0, QuestNPC = "BanditQuestGiver"},
+        ["Jungle"] = {CFrame = CFrame.new(1600,50,0), Level = 10, QuestNPC = "MonkeyQuestGiver"},
+        ["Pirate Village"] = {CFrame = CFrame.new(2500,50,0), Level = 30, QuestNPC = "PirateQuestGiver"},
+        ["Desert"] = {CFrame = CFrame.new(3500,50,0), Level = 60, QuestNPC = "DesertBanditQuestGiver"},
+        ["Frozen Village"] = {CFrame = CFrame.new(4500,50,0), Level = 100, QuestNPC = "SnowmanQuestGiver"},
+        ["Marine Fortress"] = {CFrame = CFrame.new(5500,50,0), Level = 120, QuestNPC = "MarineQuestGiver"},
+        ["Skylands"] = {CFrame = CFrame.new(6500,50,0), Level = 150, QuestNPC = "SkyBanditQuestGiver"},
+        ["Prison"] = {CFrame = CFrame.new(7500,50,0), Level = 190, QuestNPC = "PrisonQuestGiver"},
+        ["Colosseum"] = {CFrame = CFrame.new(8500,50,0), Level = 250, QuestNPC = "GladiatorQuestGiver"},
+        ["Magma Village"] = {CFrame = CFrame.new(9500,50,0), Level = 300, QuestNPC = "MagmaNinjaQuestGiver"},
+        ["Underwater City"] = {CFrame = CFrame.new(10500,50,0), Level = 375, QuestNPC = "FishmanQuestGiver"},
+        ["Fountain City"] = {CFrame = CFrame.new(11500,50,0), Level = 625, QuestNPC = "WaterFighterQuestGiver"},
+        ["Second Sea"] = {CFrame = CFrame.new(12500,50,0), Level = 700, QuestNPC = "SecondSeaQuestGiver"},
+        ["Third Sea"] = {CFrame = CFrame.new(13500,50,0), Level = 1500, QuestNPC = "ThirdSeaQuestGiver"}
+    },
+    Bosses = {
+        ["Gorilla King"] = {CFrame = CFrame.new(1700,100,0), Level = 25},
+        ["Yeti"] = {CFrame = CFrame.new(4700,100,0), Level = 105},
+        ["Vice Admiral"] = {CFrame = CFrame.new(5700,100,0), Level = 130},
+        ["Warden"] = {CFrame = CFrame.new(7700,100,0), Level = 220},
+        ["Magma Admiral"] = {CFrame = CFrame.new(9700,100,0), Level = 350},
+        ["Fishman Lord"] = {CFrame = CFrame.new(10700,100,0), Level = 425},
+        ["Don Swan"] = {CFrame = CFrame.new(11700,100,0), Level = 1000},
+        ["Dough King"] = {CFrame = CFrame.new(12700,100,0), Level = 2300},
+        ["Rip Indra"] = {CFrame = CFrame.new(13700,100,0), Level = 5000}
+    },
+    Raids = {"Flame","Ice","Quake","Dark","Light","String","Rumble","Magma","Buddha","Phoenix","Dough"},
+    Fruits = {"Bomb","Spike","Chop","Spring","Smoke","Flame","Ice","Sand","Dark","Light","Magma","Quake","Buddha","String","Phoenix","Rumble","Paw","Gravity","Dough","Venom","Control","Dragon","Leo","Kitsune","Yeti","Gas"},
+    Swords = {"Katana","Cutlass","Soul Cane","Trident","Pole","Tushita","Yama","Cursed Dual Katana","Shark Anchor","Spikey Trident"},
+    Accessories = {"Black Cape","Swordsman Hat","Tomoe Ring","Pale Scarf","Hunter Cape","Lei"},
+    StatTypes = {"Melee","Defense","Sword","Gun","Blox Fruit"}
+}
+
+local State = {
+    AutoFarm = {Enabled = false, Mob = "Bandit", Method = "Melee", Quest = false, AutoNextIsland = false},
+    AutoBoss = {Enabled = false, Boss = "Gorilla King", Method = "Melee"},
+    AutoRaid = {Enabled = false, RaidType = "Flame"},
+    Teleport = {Target = "Start Island"},
+    ESP = {Players = false, Mobs = false, Fruits = false, Chests = false},
+    Aimbot = {Enabled = false, FOV = 100, Lock = false, Silent = false},
+    Combat = {
+        SpeedHack = false, Speed = 16, NoClip = false, GodMode = false,
+        InfiniteJump = false, Fly = false, FlySpeed = 50,
+        FastAttack = false, AutoBlock = false, AntiStun = false,
+        KillAura = false, KillAuraRange = 15
+    },
+    Misc = {
+        AutoStats = false, StatsType = "Melee",
+        AutoBuy = false, FruitSniper = false, AutoCollectChests = false,
+        AutoHaki = false, AutoSuperhuman = false, AutoV4 = false,
+        AutoEnchant = false, AutoShop = false, AntiAFK = true,
+        ServerHop = false, AutoRejoin = false
+    }
+}
+
+local function findTarget(name, maxDist)
+    if not HRP then return nil end
+    local nearest, minDist = nil, maxDist or math.huge
+    for _, obj in ipairs(Services.Workspace:GetDescendants()) do
+        if obj:IsA("Model") and obj.Name == name then
+            local hum = obj:FindFirstChild("Humanoid")
+            local root = obj:FindFirstChild("HumanoidRootPart")
+            if hum and hum.Health > 0 and root then
+                local dist = (HRP.Position - root.Position).Magnitude
+                if dist < minDist then
+                    minDist = dist
+                    nearest = obj
+                end
+            end
+        end
+    end
+    return nearest
+end
+
+local function getTool(method)
+    if not Char then return nil end
+    if method == "Melee" then
+        return Char:FindFirstChildOfClass("Tool")
+    elseif method == "Sword" then
+        for _, tool in ipairs(Char:GetChildren()) do
+            if tool:IsA("Tool") and tool:FindFirstChild("Sword") then return tool end
+        end
+    elseif method == "Gun" then
+        for _, tool in ipairs(Char:GetChildren()) do
+            if tool:IsA("Tool") and tool:FindFirstChild("Gun") then return tool end
+        end
+    elseif method == "Blox Fruit" then
+        return Char:FindFirstChild("Blox Fruit") or Char:FindFirstChildOfClass("Tool")
+    end
+    return Char:FindFirstChildOfClass("Tool")
+end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "RedzHub"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = Services.CoreGui
+
+local Main = Instance.new("Frame")
+Main.Size = UDim2.new(0, 650, 0, 450)
+Main.Position = UDim2.new(0.5, -325, 0.5, -225)
+Main.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+Main.BorderSizePixel = 0
+Main.Active = true
+Main.Draggable = true
+Main.Parent = ScreenGui
+
+local TitleBar = Instance.new("Frame")
+TitleBar.Size = UDim2.new(1,0,0,30)
+TitleBar.BackgroundColor3 = Color3.fromRGB(30,30,30)
+TitleBar.BorderSizePixel = 0
+TitleBar.Parent = Main
+
+local TitleText = Instance.new("TextLabel")
+TitleText.Size = UDim2.new(1, -30, 1, 0)
+TitleText.Position = UDim2.new(0,10,0,0)
+TitleText.BackgroundTransparency = 1
+TitleText.Text = "Redz Hub | Blox Fruits"
+TitleText.TextColor3 = Color3.fromRGB(255,255,255)
+TitleText.Font = Enum.Font.GothamBold
+TitleText.TextSize = 14
+TitleText.TextXAlignment = Enum.TextXAlignment.Left
+TitleText.Parent = TitleBar
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0,30,1,0)
+CloseBtn.Position = UDim2.new(1,-30,0,0)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(200,0,0)
+CloseBtn.BorderSizePixel = 0
+CloseBtn.Text = "✕"
+CloseBtn.TextColor3 = Color3.fromRGB(255,255,255)
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.TextSize = 14
+CloseBtn.Parent = TitleBar
+CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
+
+local TabContainer = Instance.new("Frame")
+TabContainer.Size = UDim2.new(0,140,1,-30)
+TabContainer.Position = UDim2.new(0,0,0,30)
+TabContainer.BackgroundColor3 = Color3.fromRGB(25,25,25)
+TabContainer.BorderSizePixel = 0
+TabContainer.Parent = Main
+
+local ContentArea = Instance.new("Frame")
+ContentArea.Size = UDim2.new(1,-140,1,-30)
+ContentArea.Position = UDim2.new(0,140,0,30)
+ContentArea.BackgroundColor3 = Color3.fromRGB(35,35,35)
+ContentArea.BorderSizePixel = 0
+ContentArea.Parent = Main
+
+local TabButtons = {}
+local TabPages = {}
+local ActivePage = nil
+
+local function CreateTab(name)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1,0,0,32)
+    btn.BackgroundColor3 = Color3.fromRGB(40,40,40)
+    btn.BorderSizePixel = 0
+    btn.Text = name
+    btn.TextColor3 = Color3.fromRGB(220,220,220)
+    btn.Font = Enum.Font.GothamSemibold
+    btn.TextSize = 13
+    btn.Parent = TabContainer
+
+    local page = Instance.new("ScrollingFrame")
+    page.Size = UDim2.new(1,0,1,0)
+    page.BackgroundTransparency = 1
+    page.BorderSizePixel = 0
+    page.CanvasSize = UDim2.new(0,0,0,0)
+    page.ScrollBarThickness = 4
+    page.ScrollBarImageColor3 = Color3.fromRGB(100,100,100)
+    page.Visible = false
+    page.Parent = ContentArea
+
+    local layout = Instance.new("UIListLayout")
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Padding = UDim.new(0,4)
+    layout.Parent = page
+
+    page:GetPropertyChangedSignal("CanvasSize"):Connect(function()
+        page.CanvasSize = UDim2.new(0,0,0,layout.AbsoluteContentSize.Y + 10)
+    end)
+
+    btn.MouseButton1Click:Connect(function()
+        if ActivePage then ActivePage.Visible = false end
+        ActivePage = page
+        page.Visible = true
+        for _, b in ipairs(TabButtons) do
+            b.BackgroundColor3 = Color3.fromRGB(40,40,40)
+        end
+        btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+    end)
+
+    table.insert(TabButtons, btn)
+    table.insert(TabPages, page)
+    return page
+end
+
+local function AddToggle(parent, text, default, callback)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1,-10,0,28)
+    frame.BackgroundColor3 = Color3.fromRGB(45,45,45)
+    frame.BorderSizePixel = 0
+    frame.Parent = parent
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.7,0,1,0)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = Color3.fromRGB(255,255,255)
+    label.Font = Enum.Font.Gotham
+    label.TextSize = 13
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = frame
+
+    local toggleBtn = Instance.new("TextButton")
+    toggleBtn.Size = UDim2.new(0.3,-10,0.75,0)
+    toggleBtn.Position = UDim2.new(0.7,5,0.125,0)
+    toggleBtn.BackgroundColor3 = default and Color3.fromRGB(0,180,0) or Color3.fromRGB(100,100,100)
+    toggleBtn.BorderSizePixel = 0
+    toggleBtn.Text = default and "ON" or "OFF"
+    toggleBtn.TextColor3 = Color3.fromRGB(255,255,255)
+    toggleBtn.Font = Enum.Font.GothamBold
+    toggleBtn.TextSize = 11
+    toggleBtn.Parent = frame
+
+    local state = default
+    toggleBtn.MouseButton1Click:Connect(function()
+        state = not state
+        toggleBtn.Text = state and "ON" or "OFF"
+        toggleBtn.BackgroundColor3 = state and Color3.fromRGB(0,180,0) or Color3.fromRGB(100,100,100)
+        callback(state)
+    end)
+    if default then callback(true) end
+end
+
+local function AddDropdown(parent, text, options, callback)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1,-10,0,28)
+    frame.BackgroundColor3 = Color3.fromRGB(45,45,45)
+    frame.BorderSizePixel = 0
+    frame.Parent = parent
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.45,0,1,0)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = Color3.fromRGB(255,255,255)
+    label.Font = Enum.Font.Gotham
+    label.TextSize = 12
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = frame
+
+    local dropBtn = Instance.new("TextButton")
+    dropBtn.Size = UDim2.new(0.55,-10,0.75,0)
+    dropBtn.Position = UDim2.new(0.45,5,0.125,0)
+    dropBtn.BackgroundColor3 = Color3.fromRGB(70,70,70)
+    dropBtn.BorderSizePixel = 0
+    dropBtn.Text = options[1]
+    dropBtn.TextColor3 = Color3.fromRGB(255,255,255)
+    dropBtn.Font = Enum.Font.Gotham
+    dropBtn.TextSize = 12
+    dropBtn.Parent = frame
+
+    local listOpen = false
+    local listFrame = Instance.new("Frame")
+    listFrame.Size = UDim2.new(0.55,-10,0,#options*20)
+    listFrame.Position = UDim2.new(0.45,5,1,0)
+    listFrame.BackgroundColor3 = Color3.fromRGB(55,55,55)
+    listFrame.BorderSizePixel = 0
+    listFrame.Visible = false
+    listFrame.Parent = frame
+
+    for i, opt in ipairs(options) do
+        local optBtn = Instance.new("TextButton")
+        optBtn.Size = UDim2.new(1,0,0,20)
+        optBtn.Position = UDim2.new(0,0,0,(i-1)*20)
+        optBtn.BackgroundColor3 = Color3.fromRGB(70,70,70)
+        optBtn.BorderSizePixel = 0
+        optBtn.Text = opt
+        optBtn.TextColor3 = Color3.fromRGB(255,255,255)
+        optBtn.Font = Enum.Font.Gotham
+        optBtn.TextSize = 12
+        optBtn.Parent = listFrame
+        optBtn.MouseButton1Click:Connect(function()
+            dropBtn.Text = opt
+            listFrame.Visible = false
+            listOpen = false
+            callback(opt)
+        end)
+    end
+    dropBtn.MouseButton1Click:Connect(function()
+        listOpen = not listOpen
+        listFrame.Visible = listOpen
+    end)
+end
+
+local function AddSlider(parent, text, min, max, default, callback)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1,-10,0,40)
+    frame.BackgroundColor3 = Color3.fromRGB(45,45,45)
+    frame.BorderSizePixel = 0
+    frame.Parent = parent
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1,0,0,18)
+    label.BackgroundTransparency = 1
+    label.Text = text..": "..default
+    label.TextColor3 = Color3.fromRGB(255,255,255)
+    label.Font = Enum.Font.Gotham
+    label.TextSize = 12
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = frame
+
+    local sliderBg = Instance.new("Frame")
+    sliderBg.Size = UDim2.new(1,-10,0,12)
+    sliderBg.Position = UDim2.new(0,5,0,20)
+    sliderBg.BackgroundColor3 = Color3.fromRGB(60,60,60)
+    sliderBg.BorderSizePixel = 0
+    sliderBg.Parent = frame
+
+    local fill = Instance.new("Frame")
+    local frac = (default - min) / (max - min)
+    fill.Size = UDim2.new(frac,0,1,0)
+    fill.BackgroundColor3 = Color3.fromRGB(0,150,255)
+    fill.BorderSizePixel = 0
+    fill.Parent = sliderBg
+
+    local sliderBtn = Instance.new("TextButton")
+    sliderBtn.Size = UDim2.new(0,10,0,20)
+    sliderBtn.Position = UDim2.new(frac,-5,-0.5,-4)
+    sliderBtn.BackgroundColor3 = Color3.fromRGB(255,255,255)
+    sliderBtn.BorderSizePixel = 0
+    sliderBtn.Text = ""
+    sliderBtn.Parent = sliderBg
+
+    local dragging = false
+    sliderBtn.MouseButton1Down:Connect(function() dragging = true end)
+    Services.UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+    end)
+    Services.UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local pos = math.clamp((input.Position.X - sliderBg.AbsolutePosition.X) / sliderBg.AbsoluteSize.X, 0, 1)
+            local val = math.floor(min + (max - min) * pos + 0.5)
+            fill.Size = UDim2.new(pos,0,1,0)
+            sliderBtn.Position = UDim2.new(pos,-5,-0.5,-4)
+            label.Text = text..": "..val
+            callback(val)
+        end
+    end)
+end
+
+local farmTab = CreateTab("Auto Farm")
+local bossTab = CreateTab("Bosses")
+local raidTab = CreateTab("Raids")
+local teleTab = CreateTab("Teleport")
+local espTab = CreateTab("ESP")
+local aimTab = CreateTab("Aimbot")
+local combTab = CreateTab("Combat")
+local miscTab = CreateTab("Misc")
+local fruitTab = CreateTab("Fruits")
+local serverTab = CreateTab("Server")
+
+AddDropdown(farmTab, "Select Mob", {"Bandit","Monkey","Pirate","Marine","Desert Bandit","Snowman","Magma Ninja","Fishman","Sky Bandit","Galley Pirate","Water Fighter","Arctic Warrior","Dragon Crew","Female Islander","Giant"}, function(v) State.AutoFarm.Mob = v end)
+AddDropdown(farmTab, "Method", {"Melee","Sword","Gun","Blox Fruit"}, function(v) State.AutoFarm.Method = v end)
+AddToggle(farmTab, "Auto Farm", false, function(s) State.AutoFarm.Enabled = s end)
+AddToggle(farmTab, "Auto Quest", false, function(s) State.AutoFarm.Quest = s end)
+AddToggle(farmTab, "Auto Next Island", false, function(s) State.AutoFarm.AutoNextIsland = s end)
+
+local bossNames = {}
+for name,_ in pairs(GameData.Bosses) do table.insert(bossNames, name) end
+AddDropdown(bossTab, "Select Boss", bossNames, function(v) State.AutoBoss.Boss = v end)
+AddDropdown(bossTab, "Method", {"Melee","Sword","Gun","Blox Fruit"}, function(v) State.AutoBoss.Method = v end)
+AddToggle(bossTab, "Auto Boss", false, function(s) State.AutoBoss.Enabled = s end)
+
+AddDropdown(raidTab, "Raid Type", GameData.Raids, function(v) State.AutoRaid.RaidType = v end)
+AddToggle(raidTab, "Auto Raid", false, function(s) State.AutoRaid.Enabled = s end)
+
+local islandList = {}
+for name,_ in pairs(GameData.Islands) do table.insert(islandList, name) end
+AddDropdown(teleTab, "Island", islandList, function(v) State.Teleport.Target = v end)
+AddToggle(teleTab, "Teleport Now", false, function(s)
+    if s and HRP then
+        local cf = GameData.Islands[State.Teleport.Target] and GameData.Islands[State.Teleport.Target].CFrame
+        if cf then HRP.CFrame = cf end
+    end
+end)
+
+AddToggle(espTab, "Player ESP", false, function(s) State.ESP.Players = s end)
+AddToggle(espTab, "Mob ESP", false, function(s) State.ESP.Mobs = s end)
+AddToggle(espTab, "Fruit ESP", false, function(s) State.ESP.Fruits = s end)
+AddToggle(espTab, "Chest ESP", false, function(s) State.ESP.Chests = s end)
+
+AddToggle(aimTab, "Aimbot", false, function(s) State.Aimbot.Enabled = s end)
+AddSlider(aimTab, "FOV", 20, 300, 100, function(v) State.Aimbot.FOV = v end)
+AddToggle(aimTab, "Lock Target", false, function(s) State.Aimbot.Lock = s end)
+AddToggle(aimTab, "Silent Aim", false, function(s) State.Aimbot.Silent = s end)
+
+AddToggle(combTab, "Speed Hack", false, function(s) State.Combat.SpeedHack = s end)
+AddSlider(combTab, "Speed", 16, 200, 16, function(v) State.Combat.Speed = v end)
+AddToggle(combTab, "No Clip", false, function(s) State.Combat.NoClip = s end)
+AddToggle(combTab, "God Mode", false, function(s) State.Combat.GodMode = s end)
+AddToggle(combTab, "Infinite Jump", false, function(s) State.Combat.InfiniteJump = s end)
+AddToggle(combTab, "Fly", false, function(s) State.Combat.Fly = s end)
+AddSlider(combTab, "Fly Speed", 10, 200, 50, function(v) State.Combat.FlySpeed = v end)
+AddToggle(combTab, "Fast Attack", false, function(s) State.Combat.FastAttack = s end)
+AddToggle(combTab, "Auto Block", false, function(s) State.Combat.AutoBlock = s end)
+AddToggle(combTab, "Anti Stun", false, function(s) State.Combat.AntiStun = s end)
+AddToggle(combTab, "Kill Aura", false, function(s) State.Combat.KillAura = s end)
+AddSlider(combTab, "Kill Aura Range", 5, 50, 15, function(v) State.Combat.KillAuraRange = v end)
+
+AddToggle(miscTab, "Auto Stats", false, function(s) State.Misc.AutoStats = s end)
+AddDropdown(miscTab, "Stats Type", GameData.StatTypes, function(v) State.Misc.StatsType = v end)
+AddToggle(miscTab, "Auto Buy Swords/Accessories", false, function(s) State.Misc.AutoBuy = s end)
+AddToggle(miscTab, "Fruit Sniper", false, function(s) State.Misc.FruitSniper = s end)
+AddToggle(miscTab, "Auto Collect Chests", false, function(s) State.Misc.AutoCollectChests = s end)
+AddToggle(miscTab, "Auto Haki", false, function(s) State.Misc.AutoHa
