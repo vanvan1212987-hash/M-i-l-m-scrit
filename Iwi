@@ -1,0 +1,151 @@
+loadstring(game:HttpGet("https://raw.githubusercontent.com/vanvan1212987-hash/M-m-y-b-o/refs/heads/main/Fix%20lag"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/longhihilonghihi-hub/Devs-LongHiHiV4.5.1/refs/heads/main/Main.TxT.Luau"))()
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local VirtualUser = game:GetService("VirtualUser")
+local Lighting = game:GetService("Lighting")
+local CollectionService = game:GetService("CollectionService")
+
+local Player = Players.LocalPlayer
+local PlayerGui = Player:WaitForChild("PlayerGui", 5)
+
+local Character = Player.Character or Player.CharacterAdded:Wait()
+local Humanoid = Character:WaitForChild("Humanoid")
+local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+
+local executor = (getexecutorname and getexecutorname()) or (identifyexecutor and identifyexecutor()) or "Unknown"
+if executor ~= "Unknown" then
+    local allowed = {"Bunni", "FluxusZ", "Delta", "Arceus", "Xeno", "Swift", "Awp", "Volcano", "Argon", "Macsploit", "Potassium", "CodeX", "Velocity", "Romix"}
+    local found = false
+    for _, v in ipairs(allowed) do
+        if string.find(executor, v) then
+            found = true
+            break
+        end
+    end
+    if not found then
+        game.Players.LocalPlayer:Kick("Vui long su dung Delta Exploit hoac PC dung Volcano hoac Exploit tra phi!")
+        return
+    end
+end
+
+local ply = Players
+local replicated = ReplicatedStorage
+local RunSer = RunService
+local vim1 = VirtualInputManager
+local vim2 = VirtualUser
+local TW = TweenService
+local plr = Player
+local Root = HumanoidRootPart
+
+Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/hdanhhub/UI/refs/heads/main/ui_BananaHub_final.lua"))()
+
+Window = Library:CreateWindow({
+    Title = "Binhan Hud",
+    Desc = "TrueV1discord.gg/Binhan ",
+    Image = "rbxassetid://123613996022560"
+})
+
+local function makeProxy(obj, callbackHolder)
+    local proxy = {}
+    setmetatable(proxy, {
+        __index = function(_, k)
+            if k == "Nghia roblox" then
+                return function(_, fn)
+                    callbackHolder.extra = fn
+                    return proxy
+                end
+            end
+            if k == "SetStage" and obj.SetStage then
+                return function(_, v) pcall(obj.SetStage, v) end
+            end
+            if k == "SetValue" then
+                return function(_, v)
+                    if obj.SetValue then
+                        local ok = pcall(obj.SetValue, v)
+                        if not ok then pcall(function() obj:SetValue(v) end) end
+                    end
+                end
+            end
+            if k == "GetValue" then
+                return function(_)
+                    if obj.GetValue then
+                        local ok, val = pcall(obj.GetValue)
+                        if ok then return val end
+                        local ok2, val2 = pcall(function() return obj:GetValue() end)
+                        return val2
+                    end
+                end
+            end
+            if k == "SetText" or k == "SetDesc" then
+                return function(_, t)
+                    if obj.SetText then pcall(obj.SetText, obj, t)
+                    elseif obj.SetDesc then pcall(obj.SetDesc, obj, t) end
+                end
+            end
+            if k == "GetNewList" then
+                return function(_, list)
+                    if obj.GetNewList then pcall(obj.GetNewList, obj, list) end
+                end
+            end
+            if k == "ClearText" then
+                return function(_, v)
+                    if obj.ClearText then pcall(obj.ClearText, obj, v) end
+                end
+            end
+            local v = rawget(obj, k) or (type(obj) == "table" and obj[k])
+            if type(v) == "function" then
+                return function(_, ...) return pcall(v, obj, ...) end
+            end
+            return v
+        end
+    })
+    return proxy
+end
+
+local function wrapTab(rawTab)
+    local _currentSection = nil
+    local _nextIsRight = false
+
+    local function ensureSection()
+        if not _currentSection then
+            _currentSection = rawTab:AddLeftGroupbox(" ")
+        end
+    end
+
+    local wrapped = {}
+
+    function wrapped:AddSection(name)
+        if _nextIsRight then
+            _currentSection = rawTab:AddRightGroupbox(name or " ")
+            _nextIsRight = false
+        else
+            _currentSection = rawTab:AddLeftGroupbox(name or " ")
+            _nextIsRight = true
+        end
+        return _currentSection
+    end
+
+    function wrapped:AddToggle(toggleId, setting)
+        ensureSection()
+        local holder = { extra = nil }
+        local origCb = setting.Callback or setting["Callback"]
+        setting.Callback = function(v)
+            if origCb then pcall(origCb, v) end
+            if holder.extra then pcall(holder.extra, v) end
+        end
+        setting["Callback"] = setting.Callback
+        setting.Description = nil
+        local obj = _currentSection:AddToggle(toggleId, setting)
+        return makeProxy(obj, holder)
+    end
+
+    return wrapped
+end
